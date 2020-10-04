@@ -3,7 +3,7 @@ This repository contains a script that provide you the possibility to install au
 
 The tools that will be installed are
 - [theHarvester](https://github.com/laramies/theHarvester) search email, subdomain and host directly releated to your target
-- [nmap](https://nmap.org/) is a most famous exploration tool
+- [nmap](https://nmap.org/) is a most famous security and port scanner tool
 - [RustScan](https://github.com/RustScan/RustScan) is a modern (and faster) port scanner
 - [sqlmap](http://sqlmap.org/) is an open source penetration testing tool that automates the process of detecting and exploiting SQL injection
 - [nikto](https://cirt.net/Nikto2) is a web server scanner
