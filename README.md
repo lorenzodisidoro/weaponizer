@@ -37,7 +37,7 @@ docker run --rm $(whoami):nmap -h
 
 ### RustScan
 ```sh
-docker run -it --rm --name rustscan rustscan/rustscan:v1.9.0 -h
+docker run -it --rm --name rustscan rustscan/rustscan -h
 ```
 
 ### Metasploit
