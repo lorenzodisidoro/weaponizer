@@ -1,125 +1,137 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-printf "\e[92m%s\n\n" '[INFO] Start installation of vulnerability scan weapons...'
+# ===== COLORS =====
+RED="\e[91m"
+GREEN="\e[92m"
+YELLOW="\e[93m"
+RESET="\e[0m"
 
-if [ "$(command -v docker)" == "" ]; then
-    printf "\e[91m%s\e[0m\n" '[ERROR] Docker command missing. Please install docker before starting.'
-    exit 2
-fi
+# ===== LOGGING =====
+log_info()  { printf "${GREEN}[INFO] %s${RESET}\n" "$1"; }
+log_warn()  { printf "${YELLOW}[WARN] %s${RESET}\n" "$1"; }
+log_error() { printf "${RED}[ERROR] %s${RESET}\n" "$1"; }
 
-if [ "$(command -v git)" == "" ]; then
-    printf "\e[91m%s\e[0m\n" '[ERROR] Git command missing. Please install git before starting.'
-    exit 2
-fi
-
-function init {
-    WHOAMI=$(whoami)
-    NMAP_IMAGE_ID=$(docker images | grep nmap | awk '{ print $3 }')
-    RUSTSCAN_IMAGE_ID=$(docker images | grep rustscan | awk '{ print $3 }')
-    SQLMAP_IMAGE_ID=$(docker images | grep sqlmap | awk '{ print $3 }')
-    METASPLOIT_IMAGE_ID=$(docker images | grep metasploit | awk '{ print $3 }')
-    NIKTO_IMAGE_ID=$(docker images | grep nikto | awk '{ print $3 }')
-    WPSCAN_IMAGE_ID=$(docker images | grep wpscan | awk '{ print $3 }')
-    THE_HARVESTER_IMAGE_ID=$(docker images | grep theharvester | awk '{ print $3 }')
+# ===== CHECK DEPENDENCIES =====
+require_cmd() {
+    command -v "$1" >/dev/null 2>&1 || {
+        log_error "$1 command missing. Install it first."
+        exit 2
+    }
 }
 
-function install_tools {
-    init
-    if [ "$NMAP_IMAGE_ID" == "" ]; then
-        printf "\e[92m%s\e[0m\n" '[INFO] Pulling NMAP docker image'
-        docker build -t $WHOAMI:nmap ./nmap
-        printf "\e[92m%s\e[0m\n" '[INFO] Documentation: https://nmap.org/docs.html'
-    else
-        printf "\e[93m%s\e[0m\n" '[WARN] NMAP immage already exists. Docker image ID is: '$NMAP_IMAGE_ID
-    fi
-
-    if [ "$RUSTSCAN_IMAGE_ID" == "" ]; then
-        printf "\e[92m%s\e[0m\n" '[INFO] Pulling RustScan docker image'
-        docker pull rustscan/rustscan
-        printf "\e[92m%s\e[0m\n" '[INFO] Documentation: https://github.com/RustScan/RustScan'
-    else
-        printf "\e[93m%s\e[0m\n" '[WARN] RustScan immage already exists. Docker image ID is: '$RUSTSCAN_IMAGE_ID
-    fi
-
-    if [ "$THE_HARVESTER_IMAGE_ID" == "" ]; then
-        printf "\e[92m%s\e[0m\n" '[INFO] Pulling theharvester docker image'
-        docker build -t $WHOAMI:theharvester ./theHarvester
-        printf "\e[92m%s\e[0m\n" '[INFO] Documentation: https://github.com/laramies/theHarvester/'
-    else
-        printf "\e[93m%s\e[0m\n" '[WARN] theHarvester immage already exists. Docker image ID is: '$THE_HARVESTER_IMAGE_ID
-    fi
-
-    if [ "$SQLMAP_IMAGE_ID" == "" ]; then
-        printf "\e[92m%s\e[0m\n" '[INFO] Pulling sqlmap docker image'
-        docker build -t $WHOAMI:sqlmap ./sqlmap
-        printf "\e[92m%s\e[0m\n" '[INFO] Documentation: https://github.com/sqlmapproject/sqlmap'
-    else
-        printf "\e[93m%s\e[0m\n" '[WARN] sqlmap immage already exists. Docker image ID is: '$SQLMAP_IMAGE_ID
-    fi
-
-    if [ "$METASPLOIT_IMAGE_ID" == "" ]; then
-        printf "\e[92m%s\e[0m\n" '[INFO] Pulling metasploit docker image'
-        docker pull metasploitframework/metasploit-framework
-        printf "\e[92m%s\e[0m\n" '[INFO] Documentation: https://docs.rapid7.com/metasploit/getting-started/'
-    else
-        printf "\e[93m%s\e[0m\n" '[WARN] sqlmap immage already exists. Docker image ID is: '$METASPLOIT_IMAGE_ID
-    fi
-
-    if [ "$NIKTO_IMAGE_ID" == "" ]; then
-        printf "\e[92m%s\e[0m\n" '[INFO] Pulling Nikto docker image'
-        git clone https://github.com/sullo/nikto.git
-        docker build -t $WHOAMI:nikto ./nikto
-        rm -rf ./nikto
-        printf "\e[92m%s\e[0m\n" '[INFO] Documentation: https://github.com/sullo/nikto.git'
-    else
-        printf "\e[93m%s\e[0m\n" '[WARN] Nikto immage already exists. Docker image ID is: '$NIKTO_IMAGE_ID
-    fi
-
-    if [ "$WPSCAN_IMAGE_ID" == "" ]; then
-        printf "\e[92m%s\e[0m\n" '[INFO] Pulling WPScan docker image'
-        git clone https://github.com/wpscanteam/wpscan
-        docker build -t $WHOAMI:wpscan ./wpscan
-        rm -rf ./wpscan
-        printf "\e[92m%s\e[0m\n" '[INFO] Documentation: https://github.com/wpscanteam/wpscan'
-    else
-        printf "\e[93m%s\e[0m\n" '[WARN] Nikto immage already exists. Docker image ID is: '$WPSCAN_IMAGE_ID
-    fi
-
-    init
-    printf "\n\e[92m%s\n" '[INFO] NMAP installed and image ID is '$NMAP_IMAGE_ID''
-    printf "\e[92m%s\n" '[INFO] RustScan installed and image ID is '$RUSTSCAN_IMAGE_ID''
-    printf "\e[92m%s\n" '[INFO] Metasploit installed and image ID is '$METASPLOIT_IMAGE_ID''
-    printf "\e[92m%s\n" '[INFO] sqlmap installed and image ID is '$SQLMAP_IMAGE_ID''
-    printf "\e[92m%s\n" '[INFO] Nikto installed and image ID is '$NIKTO_IMAGE_ID''
-    printf "\e[92m%s\e[0m\n" '[INFO] WPScan installed and image ID is '$WPSCAN_IMAGE_ID''
-    printf "\e[92m%s\e[0m\n" '[INFO] The Harvester installed and image ID is '$THE_HARVESTER_IMAGE_ID''
+# ===== IMAGE CHECK =====
+image_exists() {
+    docker image inspect "$1" >/dev/null 2>&1
 }
 
-function uninstall_tool {
-    TOOL_DO_BE_REMOVED=$1
-    if [ "$TOOL_DO_BE_REMOVED" == "" ]; then
-        printf "\e[93m%s\e[0m\n" '[WARN] Empty argument. Insert the name of the tool to be removed (e.g. nikto, nmap, ...).'
-        exit 2;
+# ===== INSTALL HELPERS =====
+build_image() {
+    local name="$1"
+    local path="$2"
+
+    if image_exists "$name"; then
+        log_warn "Image $name already exists"
+    else
+        log_info "Building $name..."
+        docker build -t "$name" "$path"
     fi
-    IMAGE_ID=$(docker images | grep $TOOL_DO_BE_REMOVED | awk '{ print $3 }')
-    if [ "$IMAGE_ID" == "" ]; then
-        printf "\e[93m%s\e[0m\n" '[WARN] Image ID of the tool not found.'
-        exit 2;
-    fi
-    printf "\e[92m%s\n" '[INFO] Removing '$TOOL_DO_BE_REMOVED' with image ID is: '$IMAGE_ID
-    docker rmi $IMAGE_ID
 }
 
-CMD=$1
-case "$CMD" in
-    install)
-        install_tools
-        ;;
-    uninstall)
-        uninstall_tool $2
-        ;;
-    *)
-        printf "\e[93m%s\e[0m\n" '[WARN] Unexpected argument '$CMD
-        exit 1;
-        ;;
-esac
+pull_image() {
+    local name="$1"
+
+    if image_exists "$name"; then
+        log_warn "Image $name already exists"
+    else
+        log_info "Pulling $name..."
+        docker pull "$name"
+    fi
+}
+
+clone_and_build() {
+    local repo="$1"
+    local tag="$2"
+    local dir
+    dir=$(mktemp -d)
+
+    if image_exists "$tag"; then
+        log_warn "Image $tag already exists"
+        return
+    fi
+
+    log_info "Cloning $repo..."
+    git clone --depth 1 "$repo" "$dir"
+
+    log_info "Building $tag..."
+    docker build -t "$tag" "$dir"
+
+    rm -rf "$dir"
+}
+
+# ===== INSTALL =====
+install_tools() {
+    local USER_TAG
+    USER_TAG=$(whoami)
+
+    log_info "Starting installation..."
+
+    # LOCAL BUILDS
+    build_image "$USER_TAG/nmap" "./nmap"
+    build_image "$USER_TAG/sqlmap" "./sqlmap"
+    build_image "$USER_TAG/theharvester" "./theHarvester"
+
+    # REMOTE IMAGES
+    pull_image "rustscan/rustscan"
+    pull_image "metasploitframework/metasploit-framework"
+
+    # GIT BASED
+    clone_and_build "https://github.com/sullo/nikto.git" "$USER_TAG/nikto"
+    clone_and_build "https://github.com/wpscanteam/wpscan.git" "$USER_TAG/wpscan"
+
+    log_info "Installation completed ✅"
+
+    docker images | grep -E "$USER_TAG|rustscan|metasploit" || true
+}
+
+# ===== UNINSTALL =====
+uninstall_tool() {
+    local tool="$1"
+
+    if [[ -z "$tool" ]]; then
+        log_warn "Specify a tool (e.g. nmap, nikto)"
+        exit 2
+    fi
+
+    local image
+    image=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "$tool" | head -n 1 || true)
+
+    if [[ -z "$image" ]]; then
+        log_warn "No image found for $tool"
+        exit 2
+    fi
+
+    log_info "Removing $image..."
+    docker rmi "$image"
+}
+
+# ===== MAIN =====
+main() {
+    require_cmd docker
+    require_cmd git
+
+    case "${1:-}" in
+        install)
+            install_tools
+            ;;
+        uninstall)
+            uninstall_tool "${2:-}"
+            ;;
+        *)
+            log_warn "Usage: $0 {install|uninstall <tool>}"
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"
