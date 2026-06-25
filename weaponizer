@@ -7,25 +7,25 @@ GREEN="\e[92m"
 YELLOW="\e[93m"
 RESET="\e[0m"
 
-# ===== LOGGING =====
+# ===== LOGGING FUNCTIONS =====
 log_info()  { printf "${GREEN}[INFO] %s${RESET}\n" "$1"; }
 log_warn()  { printf "${YELLOW}[WARN] %s${RESET}\n" "$1"; }
 log_error() { printf "${RED}[ERROR] %s${RESET}\n" "$1"; }
 
-# ===== CHECK DEPENDENCIES =====
+# ===== CHECK REQUIRED COMMANDS =====
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || {
-        log_error "$1 command missing. Install it first."
+        log_error "$1 command not found. Please install it."
         exit 2
     }
 }
 
-# ===== IMAGE CHECK =====
+# ===== CHECK IF DOCKER IMAGE EXISTS =====
 image_exists() {
     docker image inspect "$1" >/dev/null 2>&1
 }
 
-# ===== INSTALL HELPERS =====
+# ===== BUILD LOCAL IMAGE =====
 build_image() {
     local name="$1"
     local path="$2"
@@ -33,89 +33,122 @@ build_image() {
     if image_exists "$name"; then
         log_warn "Image $name already exists"
     else
-        log_info "Building $name..."
+        log_info "Building image $name..."
         docker build -t "$name" "$path"
     fi
 }
 
+# ===== PULL REMOTE IMAGE =====
 pull_image() {
     local name="$1"
 
     if image_exists "$name"; then
         log_warn "Image $name already exists"
     else
-        log_info "Pulling $name..."
+        log_info "Pulling image $name..."
         docker pull "$name"
     fi
 }
 
+# ===== CLONE REPOSITORY AND BUILD IMAGE =====
 clone_and_build() {
     local repo="$1"
     local tag="$2"
-    local dir
-    dir=$(mktemp -d)
+    local tmp_dir
 
     if image_exists "$tag"; then
         log_warn "Image $tag already exists"
         return
     fi
 
-    log_info "Cloning $repo..."
-    git clone --depth 1 "$repo" "$dir"
+    tmp_dir=$(mktemp -d)
 
-    log_info "Building $tag..."
-    docker build -t "$tag" "$dir"
+    log_info "Cloning repository $repo..."
+    git clone --depth 1 "$repo" "$tmp_dir"
 
-    rm -rf "$dir"
+    log_info "Building image $tag..."
+    docker build -t "$tag" "$tmp_dir"
+
+    rm -rf "$tmp_dir"
 }
 
-# ===== INSTALL =====
+# ===== LIST INSTALLED TOOLS =====
+list_tools() {
+    log_info "Installed tools (Docker images):"
+
+    docker images --format "{{.Repository}}:{{.Tag}}" \
+        | grep -E "$(whoami)|rustscan|metasploit" \
+        | sort \
+        | awk '{print " - " $0}' || log_warn "No tools found"
+}
+
+# ===== INSTALL TOOLS =====
 install_tools() {
     local USER_TAG
     USER_TAG=$(whoami)
 
     log_info "Starting installation..."
 
-    # LOCAL BUILDS
+    # Local builds
     build_image "$USER_TAG/nmap" "./nmap"
     build_image "$USER_TAG/sqlmap" "./sqlmap"
     build_image "$USER_TAG/theharvester" "./theHarvester"
 
-    # REMOTE IMAGES
+    # Remote images
     pull_image "rustscan/rustscan"
     pull_image "metasploitframework/metasploit-framework"
 
-    # GIT BASED
+    # Git-based builds
     clone_and_build "https://github.com/sullo/nikto.git" "$USER_TAG/nikto"
     clone_and_build "https://github.com/wpscanteam/wpscan.git" "$USER_TAG/wpscan"
 
     log_info "Installation completed ✅"
 
-    docker images | grep -E "$USER_TAG|rustscan|metasploit" || true
+    list_tools
 }
 
-# ===== UNINSTALL =====
+# ===== UNINSTALL TOOL =====
 uninstall_tool() {
-    local tool="$1"
+    local tool="${1:-}"
 
+    # If no tool specified, show installed tools
     if [[ -z "$tool" ]]; then
-        log_warn "Specify a tool (e.g. nmap, nikto)"
+        log_warn "No tool specified."
+        list_tools
+        printf "\nUsage: $0 uninstall <tool>\n"
         exit 2
     fi
 
-    local image
-    image=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "$tool" | head -n 1 || true)
+    # Find matching images
+    local matches
+    matches=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep -i "$tool" || true)
 
-    if [[ -z "$image" ]]; then
-        log_warn "No image found for $tool"
+    if [[ -z "$matches" ]]; then
+        log_warn "No installed tool matches: $tool"
+        list_tools
         exit 2
     fi
 
-    log_info "Removing $image..."
+    # If multiple matches found, ask user to refine
+    local count
+    count=$(echo "$matches" | wc -l)
+
+    if [[ "$count" -gt 1 ]]; then
+        log_warn "Multiple matches found:"
+        echo "$matches" | awk '{print " - " $0}'
+        log_warn "Please refine the tool name"
+        exit 2
+    fi
+
+    local image="$matches"
+
+    log_info "Removing image $image..."
     docker rmi "$image"
+
+    log_info "Tool removed successfully ✅"
 }
 
-# ===== MAIN =====
+# ===== MAIN FUNCTION =====
 main() {
     require_cmd docker
     require_cmd git
@@ -127,8 +160,11 @@ main() {
         uninstall)
             uninstall_tool "${2:-}"
             ;;
+        list)
+            list_tools
+            ;;
         *)
-            log_warn "Usage: $0 {install|uninstall <tool>}"
+            log_warn "Usage: $0 {install|uninstall <tool>|list}"
             exit 1
             ;;
     esac
